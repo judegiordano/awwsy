@@ -1,17 +1,34 @@
-use aws_sdk_sqs::{self, operation::send_message::SendMessageOutput, Client};
-use serde::Serialize;
-use thiserror::Error;
-
 use crate::config::CONFIG;
+use aws_lambda_events::sqs::SqsMessage;
+use aws_sdk_sqs::{self, operation::send_message::SendMessageOutput, Client};
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum SQSError {
+    #[error("error deserializing message: {0}")]
+    Deserialize(String),
     #[error("error serializing message: {0}")]
     Serialize(String),
     #[error("error sending message: {0}")]
     SendMessage(String),
     #[error("error sending fifo message: {0}")]
     SendFifoMessage(String),
+}
+
+pub fn parse_records<T: for<'a> Deserialize<'a>>(
+    records: impl IntoIterator<Item = SqsMessage>,
+) -> Result<Vec<T>, SQSError> {
+    let mut items = vec![];
+    for record in records {
+        if let Some(body) = record.body {
+            match serde_json::from_str::<T>(&body) {
+                Ok(data) => items.push(data),
+                Err(err) => return Err(SQSError::Deserialize(err.to_string())),
+            }
+        }
+    }
+    Ok(items)
 }
 
 pub struct SqsMessageOptions {
