@@ -1,8 +1,9 @@
-use crate::config;
+use crate::config::CONFIG;
 use aws_sdk_s3::{
     operation::{
         delete_object::DeleteObjectOutput, get_object::GetObjectOutput,
-        list_buckets::ListBucketsOutput, put_object::PutObjectOutput,
+        list_buckets::ListBucketsOutput, list_objects::ListObjectsOutput,
+        put_object::PutObjectOutput,
     },
     presigning::PresigningConfig,
     Client,
@@ -16,6 +17,8 @@ pub enum S3Error {
     ListBuckets(String),
     #[error("error getting object {0}")]
     GetObject(String),
+    #[error("error listing objects {0}")]
+    ListObjects(String),
     #[error("error putting object: {0}")]
     PutObject(String),
     #[error("error deleting object: {0}")]
@@ -29,8 +32,7 @@ pub enum S3Error {
 }
 
 pub async fn list_buckets() -> Result<ListBucketsOutput, S3Error> {
-    let config = config::Config::new().await;
-    let client = Client::new(&config);
+    let client = Client::new(&CONFIG);
     match client.list_buckets().send().await {
         Ok(output) => Ok(output),
         Err(err) => Err(S3Error::ListBuckets(err.to_string())),
@@ -43,42 +45,6 @@ pub struct Bucket {
 }
 
 impl Bucket {
-    pub async fn new(bucket_name: impl ToString) -> Self {
-        let config = config::Config::new().await;
-        let client = Client::new(&config);
-        Self {
-            name: bucket_name.to_string(),
-            client,
-        }
-    }
-
-    pub async fn get_object(&self, key: String) -> Result<GetObjectOutput, S3Error> {
-        let Self { client, name } = self;
-        let request = client.get_object().bucket(name).key(key);
-        match request.send().await {
-            Ok(output) => Ok(output),
-            Err(err) => Err(S3Error::GetObject(err.to_string())),
-        }
-    }
-
-    pub async fn put_object(&self, key: &str, body: Vec<u8>) -> Result<PutObjectOutput, S3Error> {
-        let Self { client, name } = self;
-        let request = client.put_object().bucket(name).body(body.into()).key(key);
-        match request.send().await {
-            Ok(output) => Ok(output),
-            Err(err) => Err(S3Error::PutObject(err.to_string())),
-        }
-    }
-
-    pub async fn delete_object(&self, key: &str) -> Result<DeleteObjectOutput, S3Error> {
-        let Self { client, name } = self;
-        let request = client.delete_object().bucket(name).key(key);
-        match request.send().await {
-            Ok(output) => Ok(output),
-            Err(err) => Err(S3Error::DeleteObject(err.to_string())),
-        }
-    }
-
     fn _build_presigned_config(duration: Duration) -> Result<PresigningConfig, S3Error> {
         match PresigningConfig::expires_in(duration) {
             Ok(config) => Ok(config),
@@ -86,9 +52,64 @@ impl Bucket {
         }
     }
 
+    pub fn new(bucket_name: impl ToString) -> Self {
+        Self {
+            name: bucket_name.to_string(),
+            client: Client::new(&CONFIG),
+        }
+    }
+
+    pub fn name(&self) -> String {
+        self.name.to_string()
+    }
+
+    pub async fn get_object(&self, key: impl ToString) -> Result<GetObjectOutput, S3Error> {
+        let Self { client, name } = self;
+        let request = client.get_object().bucket(name).key(key.to_string());
+        match request.send().await {
+            Ok(output) => Ok(output),
+            Err(err) => Err(S3Error::GetObject(err.to_string())),
+        }
+    }
+
+    pub async fn list_objects(&self) -> Result<ListObjectsOutput, S3Error> {
+        let Self { client, name } = self;
+        let request = client.list_objects().bucket(name);
+        match request.send().await {
+            Ok(output) => Ok(output),
+            Err(err) => Err(S3Error::ListObjects(err.to_string())),
+        }
+    }
+
+    pub async fn put_object(
+        &self,
+        key: impl ToString,
+        body: Vec<u8>,
+    ) -> Result<PutObjectOutput, S3Error> {
+        let Self { client, name } = self;
+        let request = client
+            .put_object()
+            .bucket(name)
+            .body(body.into())
+            .key(key.to_string());
+        match request.send().await {
+            Ok(output) => Ok(output),
+            Err(err) => Err(S3Error::PutObject(err.to_string())),
+        }
+    }
+
+    pub async fn delete_object(&self, key: impl ToString) -> Result<DeleteObjectOutput, S3Error> {
+        let Self { client, name } = self;
+        let request = client.delete_object().bucket(name).key(key.to_string());
+        match request.send().await {
+            Ok(output) => Ok(output),
+            Err(err) => Err(S3Error::DeleteObject(err.to_string())),
+        }
+    }
+
     pub async fn get_presigned_url(
         &self,
-        key: &str,
+        key: impl ToString,
         expires_in: Duration,
     ) -> Result<String, S3Error> {
         let Self { client, name } = self;
@@ -96,7 +117,7 @@ impl Bucket {
         match client
             .get_object()
             .bucket(name)
-            .key(key)
+            .key(key.to_string())
             .presigned(presigned)
             .await
         {
@@ -107,7 +128,7 @@ impl Bucket {
 
     pub async fn put_presigned_url(
         &self,
-        key: &str,
+        key: impl ToString,
         expires_in: Duration,
     ) -> Result<String, S3Error> {
         let Self { client, name } = self;
@@ -115,7 +136,7 @@ impl Bucket {
         match client
             .put_object()
             .bucket(name)
-            .key(key)
+            .key(key.to_string())
             .presigned(presigned)
             .await
         {
