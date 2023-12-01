@@ -16,6 +16,7 @@
     "rust-analyzer.cargo.features": [
         "s3",
         "sqs",
+        "rekognition",
         "lambda_events"
     ]
 }
