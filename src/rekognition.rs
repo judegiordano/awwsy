@@ -4,7 +4,6 @@ use aws_sdk_rekognition::{
         detect_faces::DetectFacesOutput, detect_moderation_labels::DetectModerationLabelsOutput,
         recognize_celebrities::RecognizeCelebritiesOutput,
     },
-    primitives::Blob,
     types::Image,
     Client,
 };
@@ -31,57 +30,74 @@ impl Rekognition {
         }
     }
 
-    fn _build_image(data: impl IntoIterator<Item = u8>) -> Image {
-        let blob = Blob::new(data.into_iter().collect::<Vec<u8>>());
-        Image::builder().bytes(blob).build()
+    fn _build_image(bucket: impl ToString, key: impl ToString) -> Image {
+        let s3_obj = aws_sdk_rekognition::types::S3Object::builder()
+            .bucket(bucket.to_string())
+            .name(key.to_string())
+            .build();
+        aws_sdk_rekognition::types::Image::builder()
+            .s3_object(s3_obj)
+            .build()
     }
 
     pub async fn detect_faces(
         &self,
-        image: impl IntoIterator<Item = u8>,
+        bucket: impl ToString,
+        key: impl ToString,
     ) -> Result<DetectFacesOutput, RekognitionError> {
         match self
             .client
             .detect_faces()
-            .image(Self::_build_image(image))
+            .image(Self::_build_image(bucket, key))
             .attributes(aws_sdk_rekognition::types::Attribute::All)
             .send()
             .await
         {
             Ok(output) => Ok(output),
-            Err(err) => Err(RekognitionError::DetectFaces(err.to_string())),
+            Err(err) => {
+                tracing::error!("{:?}", err);
+                Err(RekognitionError::DetectFaces(err.to_string()))
+            }
         }
     }
 
     pub async fn detect_celebrities(
         &self,
-        image: impl IntoIterator<Item = u8>,
+        bucket: impl ToString,
+        key: impl ToString,
     ) -> Result<RecognizeCelebritiesOutput, RekognitionError> {
         match self
             .client
             .recognize_celebrities()
-            .image(Self::_build_image(image))
+            .image(Self::_build_image(bucket, key))
             .send()
             .await
         {
             Ok(output) => Ok(output),
-            Err(err) => Err(RekognitionError::DetectCelebrities(err.to_string())),
+            Err(err) => {
+                tracing::error!("{:?}", err);
+                Err(RekognitionError::DetectCelebrities(err.to_string()))
+            }
         }
     }
 
     pub async fn moderate_image(
         &self,
-        image: impl IntoIterator<Item = u8>,
+        bucket: impl ToString,
+        key: impl ToString,
     ) -> Result<DetectModerationLabelsOutput, RekognitionError> {
         match self
             .client
             .detect_moderation_labels()
-            .image(Self::_build_image(image))
+            .image(Self::_build_image(bucket, key))
             .send()
             .await
         {
             Ok(output) => Ok(output),
-            Err(err) => Err(RekognitionError::ModerateImage(err.to_string())),
+            Err(err) => {
+                tracing::error!("{:?}", err);
+                Err(RekognitionError::ModerateImage(err.to_string()))
+            }
         }
     }
 }

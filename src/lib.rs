@@ -11,3 +11,6 @@ pub mod sqs;
 
 #[cfg(feature = "rekognition")]
 pub mod rekognition;
+
+#[cfg(test)]
+mod tests;

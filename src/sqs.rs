@@ -24,7 +24,10 @@ pub fn parse_records<T: for<'a> Deserialize<'a>>(
         if let Some(body) = record.body {
             match serde_json::from_str::<T>(&body) {
                 Ok(data) => items.push(data),
-                Err(err) => return Err(SQSError::Deserialize(err.to_string())),
+                Err(err) => {
+                    tracing::error!("{:?}", err);
+                    return Err(SQSError::Deserialize(err.to_string()));
+                }
             }
         }
     }
@@ -64,7 +67,10 @@ impl Queue {
     fn _serialize_body(message: impl Serialize) -> Result<String, SQSError> {
         match serde_json::to_string(&message) {
             Ok(string) => Ok(string),
-            Err(err) => Err(SQSError::Serialize(err.to_string())),
+            Err(err) => {
+                tracing::error!("{:?}", err);
+                Err(SQSError::Serialize(err.to_string()))
+            }
         }
     }
 
@@ -92,7 +98,10 @@ impl Queue {
             .message_body(Self::_serialize_body(message)?);
         match response.send().await {
             Ok(output) => Ok(output),
-            Err(err) => Err(SQSError::SendMessage(err.to_string())),
+            Err(err) => {
+                tracing::error!("{:?}", err);
+                Err(SQSError::SendMessage(err.to_string()))
+            }
         }
     }
 
@@ -110,7 +119,10 @@ impl Queue {
             .message_body(Self::_serialize_body(message)?);
         match response.send().await {
             Ok(output) => Ok(output),
-            Err(err) => Err(SQSError::SendFifoMessage(err.to_string())),
+            Err(err) => {
+                tracing::error!("{:?}", err);
+                Err(SQSError::SendFifoMessage(err.to_string()))
+            }
         }
     }
 }

@@ -48,7 +48,10 @@ impl Bucket {
     fn _build_presigned_config(duration: Duration) -> Result<PresigningConfig, S3Error> {
         match PresigningConfig::expires_in(duration) {
             Ok(config) => Ok(config),
-            Err(err) => Err(S3Error::PresignedConfig(err.to_string())),
+            Err(err) => {
+                tracing::error!("{:?}", err);
+                Err(S3Error::PresignedConfig(err.to_string()))
+            }
         }
     }
 
@@ -68,7 +71,10 @@ impl Bucket {
         let request = client.get_object().bucket(name).key(key.to_string());
         match request.send().await {
             Ok(output) => Ok(output),
-            Err(err) => Err(S3Error::GetObject(err.to_string())),
+            Err(err) => {
+                tracing::error!("{:?}", err);
+                Err(S3Error::GetObject(err.to_string()))
+            }
         }
     }
 
@@ -77,7 +83,10 @@ impl Bucket {
         let request = client.list_objects().bucket(name);
         match request.send().await {
             Ok(output) => Ok(output),
-            Err(err) => Err(S3Error::ListObjects(err.to_string())),
+            Err(err) => {
+                tracing::error!("{:?}", err);
+                Err(S3Error::ListObjects(err.to_string()))
+            }
         }
     }
 
@@ -94,7 +103,10 @@ impl Bucket {
             .key(key.to_string());
         match request.send().await {
             Ok(output) => Ok(output),
-            Err(err) => Err(S3Error::PutObject(err.to_string())),
+            Err(err) => {
+                tracing::error!("{:?}", err);
+                Err(S3Error::PutObject(err.to_string()))
+            }
         }
     }
 
@@ -103,7 +115,10 @@ impl Bucket {
         let request = client.delete_object().bucket(name).key(key.to_string());
         match request.send().await {
             Ok(output) => Ok(output),
-            Err(err) => Err(S3Error::DeleteObject(err.to_string())),
+            Err(err) => {
+                tracing::error!("{:?}", err);
+                Err(S3Error::DeleteObject(err.to_string()))
+            }
         }
     }
 
@@ -122,7 +137,10 @@ impl Bucket {
             .await
         {
             Ok(a) => Ok(a.uri().to_string()),
-            Err(err) => Err(S3Error::GetPresignedUrl(err.to_string())),
+            Err(err) => {
+                tracing::error!("{:?}", err);
+                Err(S3Error::GetPresignedUrl(err.to_string()))
+            }
         }
     }
 
@@ -141,7 +159,10 @@ impl Bucket {
             .await
         {
             Ok(response) => Ok(response.uri().to_string()),
-            Err(err) => Err(S3Error::PutPresignedUrl(err.to_string())),
+            Err(err) => {
+                tracing::error!("{:?}", err);
+                Err(S3Error::PutPresignedUrl(err.to_string()))
+            }
         }
     }
 }
