@@ -35,7 +35,7 @@ pub fn parse_records<T: for<'a> Deserialize<'a>>(
 }
 
 pub struct SqsMessageOptions {
-    delay_seconds: i32,
+    pub delay_seconds: i32,
 }
 
 impl Default for SqsMessageOptions {
@@ -45,15 +45,15 @@ impl Default for SqsMessageOptions {
 }
 
 pub struct SqsFifoMessageOptions {
-    message_group_id: String,
-    message_deduplication_id: String,
+    pub message_group_id: String,
+    pub message_deduplication_id: String,
 }
 
 impl Default for SqsFifoMessageOptions {
     fn default() -> Self {
         Self {
-            message_group_id: String::new(),
-            message_deduplication_id: String::new(),
+            message_group_id: nanoid::nanoid!(),
+            message_deduplication_id: nanoid::nanoid!(),
         }
     }
 }
