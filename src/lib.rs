@@ -3,6 +3,9 @@ pub mod config;
 #[cfg(feature = "lambda_events")]
 pub use aws_lambda_events as lambda_events;
 
+#[cfg(feature = "lambda_runtime")]
+pub use lambda_runtime;
+
 #[cfg(feature = "s3")]
 pub mod s3;
 

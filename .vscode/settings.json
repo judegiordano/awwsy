@@ -17,6 +17,7 @@
         "s3",
         "sqs",
         "rekognition",
-        "lambda_events"
+        "lambda_events",
+        "lambda_runtime"
     ]
 }
