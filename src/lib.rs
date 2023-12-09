@@ -15,5 +15,8 @@ pub mod sqs;
 #[cfg(feature = "rekognition")]
 pub mod rekognition;
 
+#[cfg(feature = "polly")]
+pub mod polly;
+
 #[cfg(test)]
 mod tests;
