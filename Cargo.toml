@@ -48,5 +48,6 @@ polly = ["dep:tracing", "dep:aws-sdk-polly"]
 
 [dev-dependencies]
 anyhow = "1.0.75"
+tracing = { version = "0.1.40" }
 tokio = { version = "1.34.0", features = ["rt-multi-thread", "macros"] }
 tracing-subscriber = "0.3.18"
