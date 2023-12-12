@@ -1,5 +1,6 @@
-use crate::config::CONFIG;
+use crate::{config::CONFIG, types::AwwsyError};
 use aws_sdk_s3::{
+    error::{ProvideErrorMetadata, SdkError},
     operation::{
         delete_object::DeleteObjectOutput, get_object::GetObjectOutput,
         list_buckets::ListBucketsOutput, list_objects::ListObjectsOutput,
@@ -8,51 +9,32 @@ use aws_sdk_s3::{
     presigning::PresigningConfig,
     Client,
 };
-use std::time::Duration;
-use thiserror::Error;
+use std::{fmt::Debug, time::Duration};
 
-#[derive(Debug, Error)]
-pub enum S3Error {
-    #[error("error listing s3 buckets: {0}")]
-    ListBuckets(String),
-    #[error("error getting object {0}")]
-    GetObject(String),
-    #[error("error listing objects {0}")]
-    ListObjects(String),
-    #[error("error putting object: {0}")]
-    PutObject(String),
-    #[error("error deleting object: {0}")]
-    DeleteObject(String),
-    #[error("error creating presigned config: {0}")]
-    PresignedConfig(String),
-    #[error("error building presigned get url: {0}")]
-    GetPresignedUrl(String),
-    #[error("error building presigned put url: {0}")]
-    PutPresignedUrl(String),
+fn map_sdk_error<E: ProvideErrorMetadata + Debug, R: Debug>(err: SdkError<E, R>) -> AwwsyError {
+    tracing::error!("[AWS SDK ERROR]: {:?}", err);
+    let message = err.message().map_or(err.to_string(), |msg| msg.to_string());
+    AwwsyError::PollyError(message)
 }
 
-pub async fn list_buckets() -> Result<ListBucketsOutput, S3Error> {
+fn map_error(err: impl std::error::Error) -> AwwsyError {
+    tracing::error!("[AWWSY ERROR]: {:?}", err);
+    AwwsyError::PollyError(err.to_string())
+}
+
+pub async fn list_buckets() -> Result<ListBucketsOutput, AwwsyError> {
     let client = Client::new(&CONFIG);
-    match client.list_buckets().send().await {
-        Ok(output) => Ok(output),
-        Err(err) => Err(S3Error::ListBuckets(err.to_string())),
-    }
+    client.list_buckets().send().await.map_err(map_sdk_error)
 }
 
 pub struct Bucket {
-    name: String,
-    client: Client,
+    pub name: String,
+    pub client: Client,
 }
 
 impl Bucket {
-    fn _build_presigned_config(duration: Duration) -> Result<PresigningConfig, S3Error> {
-        match PresigningConfig::expires_in(duration) {
-            Ok(config) => Ok(config),
-            Err(err) => {
-                tracing::error!("{:?}", err);
-                Err(S3Error::PresignedConfig(err.to_string()))
-            }
-        }
+    fn _build_presigned_config(duration: Duration) -> Result<PresigningConfig, AwwsyError> {
+        PresigningConfig::expires_in(duration).map_err(map_error)
     }
 
     pub fn new(bucket_name: impl ToString) -> Self {
@@ -66,103 +48,83 @@ impl Bucket {
         self.name.to_string()
     }
 
-    pub async fn get_object(&self, key: impl ToString) -> Result<GetObjectOutput, S3Error> {
-        let Self { client, name } = self;
-        let request = client.get_object().bucket(name).key(key.to_string());
-        match request.send().await {
-            Ok(output) => Ok(output),
-            Err(err) => {
-                tracing::error!("{:?}", err);
-                Err(S3Error::GetObject(err.to_string()))
-            }
-        }
+    pub async fn get_object(&self, key: impl ToString) -> Result<GetObjectOutput, AwwsyError> {
+        self.client
+            .get_object()
+            .bucket(&self.name)
+            .key(key.to_string())
+            .send()
+            .await
+            .map_err(map_sdk_error)
     }
 
-    pub async fn list_objects(&self) -> Result<ListObjectsOutput, S3Error> {
-        let Self { client, name } = self;
-        let request = client.list_objects().bucket(name);
-        match request.send().await {
-            Ok(output) => Ok(output),
-            Err(err) => {
-                tracing::error!("{:?}", err);
-                Err(S3Error::ListObjects(err.to_string()))
-            }
-        }
+    pub async fn list_objects(&self) -> Result<ListObjectsOutput, AwwsyError> {
+        self.client
+            .list_objects()
+            .bucket(&self.name)
+            .send()
+            .await
+            .map_err(map_sdk_error)
     }
 
     pub async fn put_object(
         &self,
         key: impl ToString,
-        body: Vec<u8>,
-    ) -> Result<PutObjectOutput, S3Error> {
-        let Self { client, name } = self;
-        let request = client
+        body: impl IntoIterator<Item = u8>,
+    ) -> Result<PutObjectOutput, AwwsyError> {
+        let stream = body.into_iter().collect::<Vec<_>>();
+        self.client
             .put_object()
-            .bucket(name)
-            .body(body.into())
-            .key(key.to_string());
-        match request.send().await {
-            Ok(output) => Ok(output),
-            Err(err) => {
-                tracing::error!("{:?}", err);
-                Err(S3Error::PutObject(err.to_string()))
-            }
-        }
+            .bucket(&self.name)
+            .body(stream.into())
+            .key(key.to_string())
+            .send()
+            .await
+            .map_err(map_sdk_error)
     }
 
-    pub async fn delete_object(&self, key: impl ToString) -> Result<DeleteObjectOutput, S3Error> {
-        let Self { client, name } = self;
-        let request = client.delete_object().bucket(name).key(key.to_string());
-        match request.send().await {
-            Ok(output) => Ok(output),
-            Err(err) => {
-                tracing::error!("{:?}", err);
-                Err(S3Error::DeleteObject(err.to_string()))
-            }
-        }
+    pub async fn delete_object(
+        &self,
+        key: impl ToString,
+    ) -> Result<DeleteObjectOutput, AwwsyError> {
+        self.client
+            .delete_object()
+            .bucket(&self.name)
+            .key(key.to_string())
+            .send()
+            .await
+            .map_err(map_sdk_error)
     }
 
     pub async fn get_presigned_url(
         &self,
         key: impl ToString,
         expires_in: Duration,
-    ) -> Result<String, S3Error> {
-        let Self { client, name } = self;
-        let presigned = Self::_build_presigned_config(expires_in)?;
-        match client
+    ) -> Result<String, AwwsyError> {
+        let request = self
+            .client
             .get_object()
-            .bucket(name)
+            .bucket(&self.name)
             .key(key.to_string())
-            .presigned(presigned)
+            .presigned(Self::_build_presigned_config(expires_in)?)
             .await
-        {
-            Ok(a) => Ok(a.uri().to_string()),
-            Err(err) => {
-                tracing::error!("{:?}", err);
-                Err(S3Error::GetPresignedUrl(err.to_string()))
-            }
-        }
+            .map_err(map_sdk_error)?;
+        Ok(request.uri().to_string())
     }
 
     pub async fn put_presigned_url(
         &self,
         key: impl ToString,
         expires_in: Duration,
-    ) -> Result<String, S3Error> {
-        let Self { client, name } = self;
-        let presigned = Self::_build_presigned_config(expires_in)?;
-        match client
+    ) -> Result<String, AwwsyError> {
+        let request = self
+            .client
             .put_object()
-            .bucket(name)
+            .bucket(&self.name)
             .key(key.to_string())
-            .presigned(presigned)
+            .presigned(Self::_build_presigned_config(expires_in)?)
             .await
-        {
-            Ok(response) => Ok(response.uri().to_string()),
-            Err(err) => {
-                tracing::error!("{:?}", err);
-                Err(S3Error::PutPresignedUrl(err.to_string()))
-            }
-        }
+            .map_err(map_sdk_error)?;
+        Ok(request.uri().to_string())
     }
 }

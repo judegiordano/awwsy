@@ -1,5 +1,7 @@
 pub mod config;
 
+pub mod types;
+
 #[cfg(feature = "lambda_events")]
 pub use aws_lambda_events as lambda_events;
 

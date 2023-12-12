@@ -16,4 +16,18 @@ mod unit {
         // println!("{:?}", buckets);
         Ok(())
     }
+
+    mod polly {
+        use anyhow::Result;
+        use tracing_subscriber::FmtSubscriber;
+
+        #[tokio::test]
+        async fn test_two() -> Result<()> {
+            let subscriber = FmtSubscriber::builder()
+                .with_max_level(tracing::Level::DEBUG)
+                .finish();
+            tracing::subscriber::set_global_default(subscriber)?;
+            Ok(())
+        }
+    }
 }
