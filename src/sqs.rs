@@ -1,5 +1,3 @@
-use std::fmt::Debug;
-
 use crate::{config::CONFIG, types::AwwsyError};
 use aws_lambda_events::sqs::SqsMessage;
 use aws_sdk_sqs::{
@@ -9,6 +7,7 @@ use aws_sdk_sqs::{
     Client,
 };
 use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 
 fn map_sdk_error<E: ProvideErrorMetadata + Debug, R: Debug>(err: SdkError<E, R>) -> AwwsyError {
     tracing::error!("[AWS SDK ERROR]: {:?}", err);
