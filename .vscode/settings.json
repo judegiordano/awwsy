@@ -8,15 +8,12 @@
         "dotenv",
         "reqwest"
     ],
-    "rust-analyzer.diagnostics.disabled": [
-        "unresolved-proc-macro",
-        "macro-error"
-    ],
     "debug.allowBreakpointsEverywhere": true,
     "rust-analyzer.cargo.features": [
         "s3",
         "sqs",
         "polly",
+        "dynamodb",
         "rekognition",
         "lambda_events",
         "lambda_runtime"

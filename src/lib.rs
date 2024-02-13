@@ -20,5 +20,8 @@ pub mod rekognition;
 #[cfg(feature = "polly")]
 pub mod polly;
 
+#[cfg(feature = "dynamodb")]
+pub mod dynamodb;
+
 #[cfg(test)]
 mod tests;

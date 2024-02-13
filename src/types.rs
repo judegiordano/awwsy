@@ -12,4 +12,6 @@ pub enum AwwsyError {
     S3Error(String),
     #[error("AWS SDK SQS Error: {0}")]
     SQSError(String),
+    #[error("AWS SDK Dynamodb Error: {0}")]
+    DynamoDbError(String),
 }
