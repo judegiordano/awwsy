@@ -19,6 +19,7 @@
         "polly",
         "rekognition",
         "lambda_events",
-        "lambda_runtime"
+        "lambda_runtime",
+        "ses"
     ]
 }
